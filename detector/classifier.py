@@ -7,7 +7,7 @@ from torchvision import models, transforms
 import google.generativeai as genai
 
 # -------------------- Gemini Vision -------------------- #
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", "AIzaSyDkh-i6nhRGHeXFTvA0v4Rnbls4n_KHoIY"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY", "XXX"))
 
 def classify_with_gemini(image_base64):
     image_data = base64.b64decode(image_base64.split(',')[1])
