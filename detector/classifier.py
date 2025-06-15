@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 # -------------------- Gemini Vision -------------------- #
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+
 def classify_with_gemini(image_base64):
     image_data = base64.b64decode(image_base64.split(',')[1])
     image = Image.open(io.BytesIO(image_data)).convert("RGB")
