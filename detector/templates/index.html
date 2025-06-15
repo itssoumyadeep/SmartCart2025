@@ -3,26 +3,32 @@
 
 <head>
     <title>Super Market Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
             font-family: Arial, sans-serif;
-            margin-top: 50px;
+            margin-top: 20px;
+            padding: 0 10px;
         }
 
-        video,
-        canvas {
-            display: block;
-            margin: 20px auto;
+        video {
+            width: 100%;
+            max-width: 320px;
+            height: auto;
             border: 2px solid #ccc;
             border-radius: 8px;
         }
 
+        canvas {
+            display: none;
+        }
+
         #spinner {
             display: none;
-            margin-top: 20px;
+            margin: 15px auto;
             border: 6px solid #f3f3f3;
             border-top: 6px solid #3498db;
             border-radius: 50%;
@@ -41,15 +47,46 @@
             }
         }
 
-        h1,
-        h2 {
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        form {
+            margin-top: 10px;
+            max-width: 320px;
+            width: 100%;
             text-align: center;
         }
 
         select {
-            padding: 5px;
+            padding: 6px;
             font-size: 16px;
-            margin-top: 10px;
+            margin-top: 5px;
+            width: 100%;
+            max-width: 320px;
+            border-radius: 4px;
+        }
+
+        #result {
+            width: 100%;
+            max-width: 320px;
+            margin-top: 15px;
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+            min-height: 60px;
+            font-size: 14px;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin: 0;
+        }
+
+        li {
+            margin-bottom: 6px;
         }
     </style>
 </head>
@@ -57,16 +94,16 @@
 <body>
     <h1>Vegetable Detector</h1>
 
-    <video id="video" width="400" autoplay></video>
-    <canvas id="canvas" width="400" height="300" style="display: none;"></canvas>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" width="400" height="300"></canvas>
 
     <form method="POST" enctype="multipart/form-data" id="imageForm">
         {% csrf_token %}
         <input type="hidden" name="image_data" id="image_data" />
         <label for="model_name">Choose model:</label>
         <select name="model_name" id="model_name">
-            <option value="mobilenet">MobileNet</option>
-            <option value="huggingface_vit">Hugging Face ViT</option>
+            <!--option value="mobilenet">MobileNet</!--option>
+            <option-- value="huggingface_vit">Hugging Face ViT</option-->
             <option value="gemini">Gemini Vision</option>
         </select>
     </form>
@@ -82,7 +119,7 @@
             <li>{{ item.name }} — ${{ item.price }}</li>
             {% endfor %}
         </ul>
-        <!--p><strong>Total Price:</strong> ${{ result.total }}</!--p-->
+        <p><strong>Total Price:</strong> ${{ result.total }}</p>
         {% else %}
         <p>We don't sell these.</p>
         {% endif %}
@@ -98,13 +135,12 @@
         const spinner = document.getElementById("spinner");
         const resultDiv = document.getElementById("result");
 
-        // Get CSRF token
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== "") {
                 const cookies = document.cookie.split(";");
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
                     if (cookie.startsWith(name + "=")) {
                         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                         break;
@@ -114,17 +150,29 @@
             return cookieValue;
         }
 
-        // Access webcam
-        navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
-            video.srcObject = stream;
-        });
+        window.onload = () => {
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: "environment" } },
+                audio: false
+            }).then(stream => {
+                video.srcObject = stream;
+            }).catch(err => {
+                console.error("Camera init error:", err);
+                alert("Camera access failed: " + err.message);
+            });
+        };
 
-        // Auto capture and send every 3 seconds
         setInterval(() => {
+            if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+                // Video not ready yet
+                return;
+            }
+
             const ctx = canvas.getContext("2d");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width = 224;
+            canvas.height = 224;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
             const imageData = canvas.toDataURL("image/jpeg");
             imageDataInput.value = imageData;
 
@@ -139,22 +187,24 @@
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
                 body: formData
-            })
-                .then(response => response.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, "text/html");
-                    const newResult = doc.getElementById("result");
-                    if (newResult) {
-                        resultDiv.innerHTML = newResult.innerHTML;
-                    }
-                    spinner.style.display = "none";
-                })
-                .catch(err => {
-                    console.error("Error submitting image:", err);
-                    spinner.style.display = "none";
-                });
-        }, 4000);
+            }).then(res => {
+                console.log("Response status:", res.status);
+                return res.text();
+            }).then(html => {
+                console.log("Response snippet:", html.substring(0, 200));
+                const doc = new DOMParser().parseFromString(html, "text/html");
+                const newResult = doc.getElementById("result");
+                if (newResult) {
+                    resultDiv.innerHTML = newResult.innerHTML;
+                } else {
+                    console.warn("Result div not found in response");
+                }
+                spinner.style.display = "none";
+            }).catch(err => {
+                console.error("Upload error:", err);
+                spinner.style.display = "none";
+            });
+        }, 3000);
     </script>
 </body>
 

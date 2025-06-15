@@ -77,7 +77,8 @@ def estimate_price(name):
         "cucumber": 0.9,
         "eggplant": 2.99,
         "beetroot": 3.99,
-        "cauliflower": 2.99
+        "cauliflower": 2.99,
+        "potato": 0.5,
     }
     for key in price_list:
         if key in name.lower():
